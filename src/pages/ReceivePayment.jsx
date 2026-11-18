@@ -67,8 +67,8 @@ const ReceivePayment = () => {
   const currentOutstanding = adjustmentType === 'vehicle' && selectedVehicle
     ? selectedVehicle.pendingBalance
     : selectedOwner
-    ? selectedOwner.totalOutstanding
-    : 0;
+      ? selectedOwner.totalOutstanding
+      : 0;
 
   const numAmount = parseFloat(amount) || 0;
   const remainingAfterPayment = Math.max(0, Math.round((currentOutstanding - numAmount) * 100) / 100);
@@ -209,11 +209,10 @@ const ReceivePayment = () => {
             <button
               type="button"
               onClick={() => setAdjustmentType('owner')}
-              className={`p-3 rounded-xl border-2 text-left transition-all ${
-                adjustmentType === 'owner'
+              className={`p-3 rounded-xl border-2 text-left transition-all ${adjustmentType === 'owner'
                   ? 'border-blue-600 bg-blue-50 text-blue-900 font-bold'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-blue-600" />
@@ -227,11 +226,10 @@ const ReceivePayment = () => {
             <button
               type="button"
               onClick={() => setAdjustmentType('vehicle')}
-              className={`p-3 rounded-xl border-2 text-left transition-all ${
-                adjustmentType === 'vehicle'
+              className={`p-3 rounded-xl border-2 text-left transition-all ${adjustmentType === 'vehicle'
                   ? 'border-purple-600 bg-purple-50 text-purple-900 font-bold'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-purple-600" />
@@ -329,11 +327,10 @@ const ReceivePayment = () => {
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMode(m.id)}
-                    className={`py-3 px-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-1 border-2 transition-all tap-active ${
-                      isSelected
+                    className={`py-3 px-3 rounded-2xl text-xs font-bold flex flex-col items-center justify-center gap-1 border-2 transition-all tap-active ${isSelected
                         ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-xs ring-2 ring-emerald-500/20'
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
-                    }`}
+                      }`}
                   >
                     <IconComp className={`w-5 h-5 ${isSelected ? 'text-emerald-700' : 'text-slate-400'}`} />
                     <span className="text-xs font-black">{m.label}</span>

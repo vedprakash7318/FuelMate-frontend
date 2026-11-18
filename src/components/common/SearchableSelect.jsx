@@ -87,11 +87,10 @@ const SearchableSelect = ({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all bg-white ${
-          isOpen
-            ? 'border-blue-600 ring-2 ring-blue-500/20 shadow-md'
-            : 'border-slate-200 hover:border-slate-300 shadow-xs'
-        }`}
+        className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all bg-white ${isOpen
+          ? 'border-blue-600 ring-2 ring-blue-500/20 shadow-md'
+          : 'border-slate-200 hover:border-slate-300 shadow-xs'
+          }`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {icon && <span className="text-base flex-shrink-0">{icon}</span>}
@@ -193,11 +192,10 @@ const SearchableSelect = ({
                   <div
                     key={opt.value}
                     onClick={() => handleSelect(opt.value)}
-                    className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? 'bg-blue-50 text-blue-900 font-bold'
-                        : 'hover:bg-slate-50 text-slate-800'
-                    }`}
+                    className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-2 ${isSelected
+                      ? 'bg-blue-50 text-blue-900 font-bold'
+                      : 'hover:bg-slate-50 text-slate-800'
+                      }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -206,9 +204,8 @@ const SearchableSelect = ({
                           {opt.label}
                         </span>
                         {opt.badge && (
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${
-                            isSelected ? 'bg-blue-200 text-blue-900' : 'bg-slate-100 text-slate-600'
-                          }`}>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${isSelected ? 'bg-blue-200 text-blue-900' : 'bg-slate-100 text-slate-600'
+                            }`}>
                             {opt.badge}
                           </span>
                         )}
