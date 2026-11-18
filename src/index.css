@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Number Plate Badge Styling */
+.number-plate {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: #fef08a;
+  color: #1c1917;
+  border: 1.5px solid #000;
+  border-radius: 6px;
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.number-plate-white {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1.5px solid #334155;
+  border-radius: 6px;
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Mobile App bottom bar safe area */
+.safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Active Press scale effect */
+.tap-active:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
