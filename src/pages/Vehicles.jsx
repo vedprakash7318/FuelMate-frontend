@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Car, Plus, Search, X, Pencil, Settings, User, Phone, Check, Fuel, Droplets, Zap } from 'lucide-react';
 import api from '../utils/api';
@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
 import SearchableSelect from '../components/common/SearchableSelect';
+import Pagination from '../components/common/Pagination';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -26,6 +27,10 @@ const Vehicles = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -61,15 +66,13 @@ const Vehicles = () => {
     }
   }, []);
 
-  const fetchVehicles = async () => {
+  const fetchMetadata = async () => {
     try {
-      const [vRes, oRes, pRes, sRes] = await Promise.all([
-        api.get('/vehicles'),
-        api.get('/owners'),
+      const [oRes, pRes, sRes] = await Promise.all([
+        api.get('/owners?all=true'),
         api.get('/fuel-prices/current'),
         api.get('/settings'),
       ]);
-      if (vRes.data?.success) setVehicles(vRes.data.data);
       if (oRes.data?.success) setOwners(oRes.data.data);
       if (pRes.data?.success && pRes.data?.data?.fuelTypes) {
         setFuelTypes(
@@ -81,6 +84,27 @@ const Vehicles = () => {
         setVehicleTypesList(Array.from(new Set([...DEFAULT_VEHICLE_TYPES, ...sRes.data.data.customVehicleTypes])));
       }
     } catch (err) {
+      console.error('Failed to load vehicle metadata:', err);
+    }
+  };
+
+  const fetchVehicles = async (targetPage = page) => {
+    try {
+      setLoading(true);
+      const params = {
+        page: targetPage,
+        limit,
+      };
+      if (search && search.trim()) params.search = search.trim();
+      if (typeFilter !== 'all') params.vehicleType = typeFilter;
+
+      const res = await api.get('/vehicles', { params });
+      if (res.data?.success) {
+        setVehicles(res.data.data || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+      }
+    } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -88,8 +112,28 @@ const Vehicles = () => {
   };
 
   useEffect(() => {
-    fetchVehicles();
+    fetchMetadata();
   }, []);
+
+  // Debounce search and reset page on filter change
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchVehicles(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchVehicles(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, typeFilter]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchVehicles(newPage);
+  };
 
   const handleOpenAdd = () => {
     setEditingVehicle(null);
@@ -209,21 +253,6 @@ const Vehicles = () => {
     searchText: `${o.name} ${o.mobile} ${o.ownerId} ${o.companyName || ''}`,
   }));
 
-  const filteredVehicles = vehicles.filter((v) => {
-    const s = search.toLowerCase();
-    const matchSearch =
-      v.vehicleNumber?.toLowerCase().includes(s) ||
-      v.ownerId?.name?.toLowerCase().includes(s) ||
-      v.driverName?.toLowerCase().includes(s) ||
-      v.vehicleType?.toLowerCase().includes(s);
-
-    if (!matchSearch) return false;
-    if (typeFilter !== 'all' && v.vehicleType !== typeFilter) return false;
-    return true;
-  });
-
-  if (loading) return <LoadingSpinner text="Loading Vehicles..." />;
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -235,7 +264,7 @@ const Vehicles = () => {
             </span>
             <span>Registered Vehicles</span>
           </h2>
-          <p className="text-xs text-slate-500">{vehicles.length} fleet vehicles registered</p>
+          <p className="text-xs text-slate-500">{total} fleet vehicles registered</p>
         </div>
         <div className="flex items-center gap-2">
           {isOwner && (
@@ -292,81 +321,94 @@ const Vehicles = () => {
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {t === 'all' ? `All (${vehicles.length})` : t}
+            {t === 'all' ? 'All' : t}
           </button>
         ))}
       </div>
 
       {/* Vehicle Cards List */}
-      <div className="space-y-2.5">
-        {filteredVehicles.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
-            <Truck className="w-10 h-10 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-slate-800 mt-2">No vehicles found</h3>
-            <p className="text-xs text-slate-400 mt-1">Try another search or register a new vehicle</p>
-          </div>
-        ) : (
-          filteredVehicles.map((vehicle) => (
-            <div
-              key={vehicle._id}
-              onClick={() => navigate(`/vehicles/${vehicle._id}`)}
-              className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md cursor-pointer transition-all tap-active group relative"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-lg shadow-xs flex-shrink-0">
-                    <Truck className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="number-plate text-xs font-bold">
-                        {vehicle.vehicleNumber}
-                      </span>
-                      <StatusBadge status={vehicle.fuelTypes && vehicle.fuelTypes.length > 0 ? vehicle.fuelTypes : vehicle.fuelType} type="fuel" />
-                      <StatusBadge status={vehicle.status} />
+      {loading ? (
+        <LoadingSpinner text="Loading Vehicles..." />
+      ) : (
+        <div className="space-y-2.5">
+          {vehicles.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
+              <Truck className="w-10 h-10 text-slate-300 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800 mt-2">No vehicles found</h3>
+              <p className="text-xs text-slate-400 mt-1">Try another search or register a new vehicle</p>
+            </div>
+          ) : (
+            vehicles.map((vehicle) => (
+              <div
+                key={vehicle._id}
+                onClick={() => navigate(`/vehicles/${vehicle._id}`)}
+                className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md cursor-pointer transition-all tap-active group relative"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-lg shadow-xs flex-shrink-0">
+                      <Truck className="w-5 h-5 text-white" />
                     </div>
-                    <p className="text-xs font-bold text-slate-800 mt-1">
-                      {vehicle.vehicleName || vehicle.vehicleType}
-                      <span className="text-slate-400 font-normal ml-1">
-                        • Owner: <span className="font-semibold text-blue-600">{vehicle.ownerId?.name || 'N/A'}</span>
-                      </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="number-plate text-xs font-bold">
+                          {vehicle.vehicleNumber}
+                        </span>
+                        <StatusBadge status={vehicle.fuelTypes && vehicle.fuelTypes.length > 0 ? vehicle.fuelTypes : vehicle.fuelType} type="fuel" />
+                        <StatusBadge status={vehicle.status} />
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 mt-1">
+                        {vehicle.vehicleName || vehicle.vehicleType}
+                        <span className="text-slate-400 font-normal ml-1">
+                          • Owner: <span className="font-semibold text-blue-600">{vehicle.ownerId?.name || 'N/A'}</span>
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleOpenEdit(e, vehicle)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                    title="Edit Vehicle"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Bottom Row */}
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="text-slate-600 font-medium">
+                      Driver: <span className="font-bold text-slate-800">{vehicle.driverName}</span> ({vehicle.driverMobile})
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Type: <span className="font-semibold">{vehicle.vehicleType}</span> • Consumed: {formatLiters(vehicle.totalFuelConsumed)}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">Pending Balance</p>
+                    <p className={`text-sm font-extrabold font-mono ${
+                      vehicle.pendingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'
+                    }`}>
+                      {formatCurrency(vehicle.pendingBalance)}
                     </p>
                   </div>
                 </div>
-
-                <button
-                  onClick={(e) => handleOpenEdit(e, vehicle)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
-                  title="Edit Vehicle"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
               </div>
+            ))
+          )}
 
-              {/* Bottom Row */}
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <div>
-                  <p className="text-slate-600 font-medium">
-                    Driver: <span className="font-bold text-slate-800">{vehicle.driverName}</span> ({vehicle.driverMobile})
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Type: <span className="font-semibold">{vehicle.vehicleType}</span> • Consumed: {formatLiters(vehicle.totalFuelConsumed)}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Pending Balance</p>
-                  <p className={`text-sm font-extrabold font-mono ${
-                    vehicle.pendingBalance > 0 ? 'text-rose-600' : 'text-emerald-600'
-                  }`}>
-                    {formatCurrency(vehicle.pendingBalance)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
 
       {/* Add / Edit Vehicle Modal */}
       <Modal

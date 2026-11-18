@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   UserCog, 
   Plus, 
@@ -6,18 +6,29 @@ import {
   Key, 
   History, 
   ShieldCheck, 
-  Phone 
+  Phone,
+  Search,
+  X
 } from 'lucide-react';
 import api from '../utils/api';
 import { formatDate, formatDateTime, getErrorMessage } from '../utils/helpers';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
+import Pagination from '../components/common/Pagination';
 import toast from 'react-hot-toast';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Add / Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,11 +54,21 @@ const Employees = () => {
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (targetPage = page) => {
     try {
-      const res = await api.get('/users');
+      setLoading(true);
+      const params = {
+        page: targetPage,
+        limit,
+      };
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (search && search.trim()) params.search = search.trim();
+
+      const res = await api.get('/users', { params });
       if (res.data?.success) {
-        setEmployees(res.data.data);
+        setEmployees(res.data.data || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -56,9 +77,24 @@ const Employees = () => {
     }
   };
 
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchEmployees(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchEmployees(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [statusFilter, search]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchEmployees(newPage);
+  };
 
   const handleOpenAdd = () => {
     setEditingEmployee(null);
@@ -182,7 +218,7 @@ const Employees = () => {
             <span>Employee Management</span>
           </h2>
           <p className="text-xs text-slate-500">
-            {employees.length} employees • Staff accounts for pump operations
+            {total} employees • Staff accounts for pump operations
           </p>
         </div>
         <button
@@ -192,6 +228,49 @@ const Employees = () => {
           <Plus className="w-3.5 h-3.5" />
           <span>Add Employee</span>
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+          <Search className="w-4 h-4" />
+        </span>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search Employee Name, Username, Mobile..."
+          className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-xs"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs">
+        {[
+          { id: 'all', label: 'All' },
+          { id: 'active', label: 'Active' },
+          { id: 'inactive', label: 'Inactive' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setStatusFilter(tab.id)}
+            className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              statusFilter === tab.id
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Employees Cards */}
@@ -272,6 +351,15 @@ const Employees = () => {
             </div>
           ))
         )}
+
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={handlePageChange}
+        />
       </div>
 
       {/* Add / Edit Employee Modal */}

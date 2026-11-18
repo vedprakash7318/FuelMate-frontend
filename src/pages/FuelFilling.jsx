@@ -95,8 +95,8 @@ const FuelFilling = () => {
   const fetchData = async () => {
     try {
       const [ownersRes, vehiclesRes, pricesRes, settingsRes] = await Promise.all([
-        api.get('/owners'),
-        api.get('/vehicles'),
+        api.get('/owners?all=true'),
+        api.get('/vehicles?all=true'),
         api.get('/fuel-prices/current'),
         api.get('/settings'),
       ]);

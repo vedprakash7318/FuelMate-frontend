@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Plus, Search, X, Pencil, Truck, MessageSquare, Phone } from 'lucide-react';
 import api from '../utils/api';
@@ -6,6 +6,7 @@ import { formatCurrency, formatNumber, generateWhatsAppLink, getErrorMessage } f
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
+import Pagination from '../components/common/Pagination';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -17,6 +18,11 @@ const Owners = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'pending' | 'active' | 'inactive'
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [summary, setSummary] = useState({ totalOutstanding: 0, totalCount: 0 });
 
   // Add / Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,11 +45,26 @@ const Owners = () => {
   };
   const [formData, setFormData] = useState(initialForm);
 
-  const fetchOwners = async () => {
+  const fetchOwners = async (targetPage = page) => {
     try {
-      const res = await api.get('/owners');
+      setLoading(true);
+      const params = {
+        page: targetPage,
+        limit,
+      };
+      if (search && search.trim()) params.search = search.trim();
+      if (filterTab === 'active') params.status = 'active';
+      if (filterTab === 'inactive') params.status = 'inactive';
+      if (filterTab === 'pending') params.hasOutstanding = 'true';
+
+      const res = await api.get('/owners', { params });
       if (res.data?.success) {
-        setOwners(res.data.data);
+        setOwners(res.data.data || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        if (res.data.summary) {
+          setSummary(res.data.summary);
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -52,9 +73,25 @@ const Owners = () => {
     }
   };
 
+  // Debounce search and reset page on filter change
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    fetchOwners();
-  }, []);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchOwners(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchOwners(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, filterTab]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchOwners(newPage);
+  };
 
   const handleOpenAdd = () => {
     setEditingOwner(null);
@@ -103,34 +140,13 @@ const Owners = () => {
         }
       }
       setIsModalOpen(false);
-      fetchOwners();
+      fetchOwners(page);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
-
-  // Filter owners
-  const filteredOwners = owners.filter((o) => {
-    const s = search.toLowerCase();
-    const matchesSearch =
-      o.name?.toLowerCase().includes(s) ||
-      o.mobile?.includes(s) ||
-      o.companyName?.toLowerCase().includes(s) ||
-      o.ownerId?.toLowerCase().includes(s);
-
-    if (!matchesSearch) return false;
-
-    if (filterTab === 'pending') return o.totalOutstanding > 0;
-    if (filterTab === 'active') return o.status === 'active';
-    if (filterTab === 'inactive') return o.status === 'inactive';
-    return true;
-  });
-
-  const totalOutstandingSum = filteredOwners.reduce((acc, curr) => acc + (curr.totalOutstanding || 0), 0);
-
-  if (loading) return <LoadingSpinner text="Loading Customer Khata..." />;
 
   return (
     <div className="space-y-4">
@@ -144,7 +160,7 @@ const Owners = () => {
             <span>Customer Owners</span>
           </h2>
           <p className="text-xs text-slate-500">
-            {owners.length} registered customers • Total Pending: {formatCurrency(totalOutstandingSum)}
+            {total} registered customers • Total Pending: {formatCurrency(summary.totalOutstanding || 0)}
           </p>
         </div>
         <button
@@ -181,10 +197,10 @@ const Owners = () => {
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         {[
-          { id: 'all', label: `All (${owners.length})` },
-          { id: 'pending', label: `Outstanding (${owners.filter((o) => o.totalOutstanding > 0).length})` },
-          { id: 'active', label: `Active (${owners.filter((o) => o.status === 'active').length})` },
-          { id: 'inactive', label: `Inactive (${owners.filter((o) => o.status === 'inactive').length})` },
+          { id: 'all', label: 'All' },
+          { id: 'pending', label: 'Outstanding' },
+          { id: 'active', label: 'Active' },
+          { id: 'inactive', label: 'Inactive' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -201,113 +217,129 @@ const Owners = () => {
       </div>
 
       {/* Owners Cards List */}
-      <div className="space-y-2.5">
-        {filteredOwners.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
-            <Users className="w-10 h-10 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-slate-800 mt-2">No customers found</h3>
-            <p className="text-xs text-slate-400 mt-1">Try another search or register a new owner</p>
-          </div>
-        ) : (
-          filteredOwners.map((owner) => {
-            const waLink = generateWhatsAppLink(
-              owner.mobile,
-              owner.name,
-              owner.totalOutstanding,
-              pumpSettings?.pumpName || 'Petrol Pump'
-            );
+      {loading ? (
+        <LoadingSpinner text="Loading customers..." />
+      ) : (
+        <div className="space-y-2.5">
+          {owners.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
+              <Users className="w-10 h-10 text-slate-300 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800 mt-2">No customers found</h3>
+              <p className="text-xs text-slate-400 mt-1">Try another search or register a new owner</p>
+            </div>
+          ) : (
+            owners.map((owner) => {
+              const waLink = generateWhatsAppLink(
+                owner.mobile,
+                owner.name,
+                owner.totalOutstanding,
+                pumpSettings?.pumpName || 'Petrol Pump'
+              );
 
-            return (
-              <div
-                key={owner._id}
-                onClick={() => navigate(`/owners/${owner._id}`)}
-                className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer tap-active relative group"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-base shadow-xs flex-shrink-0">
-                      {owner.name?.charAt(0)?.toUpperCase() || 'C'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                          {owner.name}
-                        </h4>
-                        <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold">
-                          {owner.ownerId}
-                        </span>
-                        <StatusBadge status={owner.status} />
+              return (
+                <div
+                  key={owner._id}
+                  onClick={() => navigate(`/owners/${owner._id}`)}
+                  className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer tap-active relative group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-base shadow-xs flex-shrink-0">
+                        {owner.name?.charAt(0)?.toUpperCase() || 'C'}
                       </div>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
-                        {owner.companyName ? `${owner.companyName} • ` : ''}
-                        <span>{owner.mobile}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Edit button */}
-                  <button
-                    onClick={(e) => handleOpenEdit(e, owner)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
-                    title="Edit Customer"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Bottom Row Stats & Quick Actions */}
-                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-slate-50 text-slate-700 px-2.5 py-1 rounded-lg font-semibold border border-slate-100 flex items-center gap-1.5">
-                      <Truck className="w-3 h-3 text-slate-500" />
-                      <span>{owner.totalVehicles || 0} Vehicles</span>
-                    </span>
-                    <span className="text-slate-400 hidden sm:inline">
-                      Paid: {formatCurrency(owner.totalPayment)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Outstanding Balance</p>
-                      <p className={`text-sm font-extrabold font-mono ${
-                        owner.totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-600'
-                      }`}>
-                        {formatCurrency(owner.totalOutstanding)}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {owner.name}
+                          </h4>
+                          <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold">
+                            {owner.ownerId}
+                          </span>
+                          <StatusBadge status={owner.status} />
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {owner.companyName ? `${owner.companyName} • ` : ''}
+                          <span>{owner.mobile}</span>
+                        </p>
+                      </div>
                     </div>
 
-                    {/* WhatsApp Action */}
-                    {waLink && (
-                      <a
-                        href={waLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-bold text-sm hover:bg-emerald-100 transition-colors"
-                        title="WhatsApp Reminder"
-                      >
-                        <MessageSquare className="w-4 h-4 text-emerald-600" />
-                      </a>
-                    )}
-                    {/* Call Action */}
-                    {owner.mobile && (
-                      <a
-                        href={`tel:${owner.mobile}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm hover:bg-blue-100 transition-colors"
-                        title="Call"
-                      >
-                        <Phone className="w-4 h-4 text-blue-600" />
-                      </a>
-                    )}
+                    {/* Edit button */}
+                    <button
+                      onClick={(e) => handleOpenEdit(e, owner)}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                      title="Edit Customer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Bottom Row Stats & Quick Actions */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="bg-slate-50 text-slate-700 px-2.5 py-1 rounded-lg font-semibold border border-slate-100 flex items-center gap-1.5">
+                        <Truck className="w-3 h-3 text-slate-500" />
+                        <span>{owner.totalVehicles || 0} Vehicles</span>
+                      </span>
+                      <span className="text-slate-400 hidden sm:inline">
+                        Paid: {formatCurrency(owner.totalPayment)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-bold text-slate-400">Outstanding Balance</p>
+                        <p
+                          className={`text-sm font-extrabold font-mono ${
+                            owner.totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-600'
+                          }`}
+                        >
+                          {formatCurrency(owner.totalOutstanding)}
+                        </p>
+                      </div>
+
+                      {/* WhatsApp Action */}
+                      {waLink && (
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-bold text-sm hover:bg-emerald-100 transition-colors"
+                          title="WhatsApp Reminder"
+                        >
+                          <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        </a>
+                      )}
+
+                      {/* Call Action */}
+                      {owner.mobile && (
+                        <a
+                          href={`tel:${owner.mobile}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm hover:bg-blue-100 transition-colors"
+                          title="Call"
+                        >
+                          <Phone className="w-4 h-4 text-blue-600" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+
+          {/* Pagination Controls */}
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
 
       {/* Add / Edit Owner Modal */}
       <Modal

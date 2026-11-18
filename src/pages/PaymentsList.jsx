@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Wallet, 
@@ -16,6 +16,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import ReceiptModal from '../components/common/ReceiptModal';
 import Modal from '../components/common/Modal';
+import Pagination from '../components/common/Pagination';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -30,6 +31,13 @@ const PaymentsList = () => {
   const [modeFilter, setModeFilter] = useState('all');
   const [search, setSearch] = useState('');
 
+  // Pagination & Summary
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [summary, setSummary] = useState({ totalCollected: 0 });
+
   // Selected for Receipt
   const [selectedPayment, setSelectedPayment] = useState(null);
 
@@ -38,14 +46,24 @@ const PaymentsList = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (targetPage = page) => {
     try {
-      let url = '/payments?limit=100';
-      if (modeFilter !== 'all') url += `&paymentMode=${modeFilter}`;
+      setLoading(true);
+      const params = {
+        page: targetPage,
+        limit,
+      };
+      if (modeFilter !== 'all') params.paymentMode = modeFilter;
+      if (search && search.trim()) params.search = search.trim();
 
-      const res = await api.get(url);
+      const res = await api.get('/payments', { params });
       if (res.data?.success) {
-        setPayments(res.data.data);
+        setPayments(res.data.data || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        if (res.data.summary) {
+          setSummary(res.data.summary);
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -54,9 +72,24 @@ const PaymentsList = () => {
     }
   };
 
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    fetchPayments();
-  }, [modeFilter]);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchPayments(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchPayments(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [modeFilter, search]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchPayments(newPage);
+  };
 
   const handleCancel = async (e) => {
     e.preventDefault();
@@ -73,7 +106,7 @@ const PaymentsList = () => {
         toast.success('Payment cancelled and balance restored');
         setCancelPaymentItem(null);
         setCancelReason('');
-        fetchPayments();
+        fetchPayments(page);
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -81,19 +114,6 @@ const PaymentsList = () => {
       setCancelling(false);
     }
   };
-
-  const filteredPayments = payments.filter((p) => {
-    const s = search.toLowerCase();
-    return (
-      p.paymentId?.toLowerCase().includes(s) ||
-      p.ownerId?.name?.toLowerCase().includes(s) ||
-      p.transactionRef?.toLowerCase().includes(s)
-    );
-  });
-
-  const totalCollected = filteredPayments
-    .filter((p) => p.status === 'active')
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   if (loading) return <LoadingSpinner text="Loading Payments..." />;
 
@@ -109,7 +129,7 @@ const PaymentsList = () => {
             <span>Payment Records</span>
           </h2>
           <p className="text-xs text-slate-500">
-            {filteredPayments.length} records • Total: {formatCurrency(totalCollected)}
+            {total} records • Total: {formatCurrency(summary.totalCollected || 0)}
           </p>
         </div>
         <button
@@ -155,13 +175,13 @@ const PaymentsList = () => {
 
       {/* Payment Cards */}
       <div className="space-y-2.5">
-        {filteredPayments.length === 0 ? (
+        {payments.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
             <Wallet className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-xs font-bold text-slate-700 mt-2">No payment records found</p>
           </div>
         ) : (
-          filteredPayments.map((p) => (
+          payments.map((p) => (
             <div
               key={p._id}
               onClick={() => setSelectedPayment(p)}
@@ -238,6 +258,15 @@ const PaymentsList = () => {
             </div>
           ))
         )}
+
+        {/* Pagination Controls */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={handlePageChange}
+        />
       </div>
 
       {/* Slip Modal */}

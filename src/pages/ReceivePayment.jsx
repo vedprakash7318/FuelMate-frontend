@@ -30,8 +30,8 @@ const ReceivePayment = () => {
     const fetchData = async () => {
       try {
         const [ownersRes, vehiclesRes] = await Promise.all([
-          api.get('/owners'),
-          api.get('/vehicles'),
+          api.get('/owners?all=true'),
+          api.get('/vehicles?all=true'),
         ]);
         if (ownersRes.data?.success) setOwners(ownersRes.data.data);
         if (vehiclesRes.data?.success) setVehicles(vehiclesRes.data.data);
@@ -135,7 +135,7 @@ const ReceivePayment = () => {
         setTransactionRef('');
         setRemark('');
         // Refresh owners
-        const ownersRes = await api.get('/owners');
+        const ownersRes = await api.get('/owners?all=true');
         if (ownersRes.data?.success) setOwners(ownersRes.data.data);
       }
     } catch (err) {

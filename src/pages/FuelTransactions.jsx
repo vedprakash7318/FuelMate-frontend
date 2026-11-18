@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FileText, 
@@ -18,6 +18,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import StatusBadge from '../components/common/StatusBadge';
 import ReceiptModal from '../components/common/ReceiptModal';
 import Modal from '../components/common/Modal';
+import Pagination from '../components/common/Pagination';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -34,6 +35,13 @@ const FuelTransactions = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Pagination & Summary
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [summary, setSummary] = useState({ totalQuantity: 0, totalAmount: 0 });
+
   // Selected for Receipt
   const [selectedTxn, setSelectedTxn] = useState(null);
 
@@ -42,16 +50,26 @@ const FuelTransactions = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (targetPage = page) => {
     try {
-      let url = '/fuel?limit=100';
-      if (fuelType !== 'all') url += `&fuelType=${fuelType}`;
-      if (startDate) url += `&startDate=${startDate}`;
-      if (endDate) url += `&endDate=${endDate}`;
+      setLoading(true);
+      const params = {
+        page: targetPage,
+        limit,
+      };
+      if (fuelType !== 'all') params.fuelType = fuelType;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (search && search.trim()) params.search = search.trim();
 
-      const res = await api.get(url);
+      const res = await api.get('/fuel', { params });
       if (res.data?.success) {
-        setTransactions(res.data.data);
+        setTransactions(res.data.data || []);
+        setTotal(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        if (res.data.summary) {
+          setSummary(res.data.summary);
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -60,9 +78,24 @@ const FuelTransactions = () => {
     }
   };
 
+  const isFirstMount = useRef(true);
   useEffect(() => {
-    fetchTransactions();
-  }, [fuelType, startDate, endDate]);
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchTransactions(1);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchTransactions(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fuelType, startDate, endDate, search]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchTransactions(newPage);
+  };
 
   const handleCancel = async (e) => {
     e.preventDefault();
@@ -79,7 +112,7 @@ const FuelTransactions = () => {
         toast.success('Transaction cancelled and khata reversed');
         setCancelTxn(null);
         setCancelReason('');
-        fetchTransactions();
+        fetchTransactions(page);
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -87,23 +120,6 @@ const FuelTransactions = () => {
       setCancelling(false);
     }
   };
-
-  const filteredTxns = transactions.filter((t) => {
-    const s = search.toLowerCase();
-    return (
-      t.transactionId?.toLowerCase().includes(s) ||
-      t.ownerId?.name?.toLowerCase().includes(s) ||
-      t.vehicleId?.vehicleNumber?.toLowerCase().includes(s)
-    );
-  });
-
-  const totalAmount = filteredTxns
-    .filter((t) => t.status === 'active')
-    .reduce((sum, t) => sum + (t.totalAmount || 0), 0);
-
-  const totalLiters = filteredTxns
-    .filter((t) => t.status === 'active')
-    .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
   if (loading) return <LoadingSpinner text="Loading Fuel Transactions..." />;
 
@@ -119,7 +135,7 @@ const FuelTransactions = () => {
             <span>Fuel Transactions</span>
           </h2>
           <p className="text-xs text-slate-500">
-            {filteredTxns.length} entries • {formatLiters(totalLiters)} • {formatCurrency(totalAmount)}
+            {total} entries • {formatLiters(summary.totalQuantity || 0)} • {formatCurrency(summary.totalAmount || 0)}
           </p>
         </div>
         <button
@@ -173,13 +189,13 @@ const FuelTransactions = () => {
 
       {/* Transactions Feed */}
       <div className="space-y-2.5">
-        {filteredTxns.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
             <Fuel className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-xs font-bold text-slate-700 mt-2">No fuel entries found</p>
           </div>
         ) : (
-          filteredTxns.map((txn) => (
+          transactions.map((txn) => (
             <div
               key={txn._id}
               onClick={() => setSelectedTxn(txn)}
@@ -259,6 +275,15 @@ const FuelTransactions = () => {
             </div>
           ))
         )}
+
+        {/* Pagination Controls */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={handlePageChange}
+        />
       </div>
 
       {/* Slip Modal */}

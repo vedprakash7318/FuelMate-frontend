@@ -40,8 +40,8 @@ const KhataLedger = () => {
     const fetchEntities = async () => {
       try {
         const [oRes, vRes] = await Promise.all([
-          api.get('/owners'),
-          api.get('/vehicles'),
+          api.get('/owners?all=true'),
+          api.get('/vehicles?all=true'),
         ]);
         if (oRes.data?.success) {
           setOwners(oRes.data.data);
