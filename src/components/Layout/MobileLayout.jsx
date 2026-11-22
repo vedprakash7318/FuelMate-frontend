@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Users, Fuel, Wallet, Plus, Menu, X, Zap, Droplets,
   BarChart3, Truck, BookOpen, Tag, Settings, UserCog, LogOut,
-  Monitor, Smartphone, ShieldCheck, UserCheck
+  Monitor, Smartphone, ShieldCheck, UserCheck, ShieldAlert, Clock, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import QuickActionSheet from '../common/QuickActionSheet';
@@ -200,6 +200,32 @@ const MobileLayout = ({ children }) => {
             </div>
           </div>
         </header>
+
+        {/* Subscription / Account Status Warning Banner */}
+        {pumpSettings?.isBlocked && (
+          <div className="bg-rose-600 text-white text-xs px-4 py-2 font-bold flex items-center justify-between gap-2 shadow-sm">
+            <span className="flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              <span>Pump Suspended: {pumpSettings.blockReason || 'Contact Super Admin'}</span>
+            </span>
+          </div>
+        )}
+        {!pumpSettings?.isBlocked && pumpSettings?.isExpired && (
+          <div className="bg-red-600 text-white text-xs px-4 py-2 font-bold flex items-center justify-between gap-2 shadow-sm">
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Subscription Expired ({pumpSettings.daysExpired || 0}d ago). Write entries locked.</span>
+            </span>
+          </div>
+        )}
+        {!pumpSettings?.isBlocked && !pumpSettings?.isExpired && pumpSettings?.daysRemaining !== undefined && pumpSettings?.daysRemaining <= 7 && (
+          <div className="bg-amber-500 text-slate-950 text-xs px-4 py-1.5 font-extrabold flex items-center justify-between gap-2 shadow-sm">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 shrink-0" />
+              <span>Subscription expiring in {pumpSettings.daysRemaining} days. Contact Super Admin to renew.</span>
+            </span>
+          </div>
+        )}
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto pb-32 sm:pb-36 px-3 sm:px-5 py-3.5">

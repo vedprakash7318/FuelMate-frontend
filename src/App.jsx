@@ -4,7 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import MobileLayout from './components/Layout/MobileLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
-// Pages
+// Regular Pump Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import FuelFilling from './pages/FuelFilling';
@@ -43,7 +43,9 @@ const App = () => {
       {/* Public Route */}
       <Route path="/login" element={<Login />} />
 
-      {/* Shared Protected Routes (Owner + Employee) */}
+      {/* ========================================================= */}
+      {/* PUMP OPERATIONAL ROUTES (Owner & Staff Mobile Layout)   */}
+      {/* ========================================================= */}
       <Route
         path="/"
         element={

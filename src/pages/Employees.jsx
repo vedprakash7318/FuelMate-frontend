@@ -126,8 +126,8 @@ const Employees = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.mobile || (!editingEmployee && (!formData.username || !formData.password))) {
-      toast.error('Please fill required fields');
+    if (!formData.name || !formData.mobile || (!editingEmployee && !formData.password)) {
+      toast.error('Please enter name, mobile number, and password');
       return;
     }
 
@@ -409,14 +409,15 @@ const Employees = () => {
           {!editingEmployee && (
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Username *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Username <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
-                  placeholder="e.g. shyam123"
+                  placeholder="Defaults to mobile"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold"
-                  required
                 />
               </div>
               <div>

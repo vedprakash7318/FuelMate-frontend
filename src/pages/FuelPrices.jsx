@@ -263,7 +263,6 @@ const FuelPrices = () => {
                 placeholder="0.00"
                 className="w-full pl-9 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-lg font-bold text-slate-900 focus:outline-none focus:border-blue-600 font-mono"
                 required
-                autoFocus
               />
             </div>
 

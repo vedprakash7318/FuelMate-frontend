@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
           if (data.success && data.user) {
             setUser(data.user);
             localStorage.setItem('petrol_user', JSON.stringify(data.user));
+            if (data.pump) setPumpSettings(data.pump);
           }
         } catch (err) {
           console.error('Session expired or invalid', err);
@@ -33,11 +34,11 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Fetch pump settings if authenticated
+  // Fetch pump settings if authenticated and not superadmin
   useEffect(() => {
-    if (user) {
+    if (user && user.role !== 'superadmin') {
       api.get('/settings')
-        .then(res => {
+        .then((res) => {
           if (res.data?.success && res.data?.data) {
             setPumpSettings(res.data.data);
           }
@@ -46,13 +47,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
-  const login = async (username, password) => {
-    const { data } = await api.post('/auth/login', { username, password });
+  const login = async (identifier, password) => {
+    const { data } = await api.post('/auth/login', {
+      identifier,
+      username: identifier,
+      password,
+    });
     if (data.success) {
       localStorage.setItem('petrol_token', data.token);
       localStorage.setItem('petrol_user', JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
+      if (data.pump) setPumpSettings(data.pump);
       return data.user;
     }
     throw new Error(data.message || 'Login failed');
@@ -66,6 +72,7 @@ export const AuthProvider = ({ children }) => {
     setPumpSettings(null);
   };
 
+  const isSuperAdmin = user?.role === 'superadmin';
   const isOwner = user?.role === 'owner';
   const isEmployee = user?.role === 'employee';
 
@@ -77,6 +84,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        isSuperAdmin,
         isOwner,
         isEmployee,
         pumpSettings,

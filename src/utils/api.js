@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+// Normalize API Base URL (handles trailing slashes, missing /api, etc.)
+const formatBaseURL = (url) => {
+  if (!url) return '/api';
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (trimmed === '' || trimmed === '/api') return '/api';
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: formatBaseURL(import.meta.env.VITE_API_BASE_URL),
   headers: {
     'Content-Type': 'application/json',
   },
