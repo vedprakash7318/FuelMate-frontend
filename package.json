@@ -1,5 +1,5 @@
 {
-  "name": "petrol-pump-frontend",
+  "name": "fuelsathi-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -7,9 +7,14 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "cap sync",
+    "cap:android": "cap open android",
+    "cap:build": "vite build && cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
     "axios": "^1.6.7",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
@@ -22,6 +27,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.35",
