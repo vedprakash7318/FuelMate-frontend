@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FuelSathi</string>
+    <string name="title_activity_main">FuelSathi</string>
+    <string name="package_name">in.ervedprakash.fuelsathi</string>
+    <string name="custom_url_scheme">in.ervedprakash.fuelsathi</string>
+</resources>

@@ -13,8 +13,8 @@
     "cap:build": "vite build && cap sync"
   },
   "dependencies": {
-    "@capacitor/android": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.2.3",
+    "@capacitor/core": "^6.2.3",
     "axios": "^1.6.7",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
@@ -27,7 +27,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0",
+    "@capacitor/cli": "^6.2.3",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.35",
