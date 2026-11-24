@@ -1,0 +1,31 @@
+
+workflows:
+  fuelsathi-android:
+    name: FuelSathi Test APK
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      node: v22.11.0
+
+    scripts:
+      - name: Install Dependencies
+        script: npm ci
+
+      - name: Build React App
+        script: npm run build
+
+      - name: Sync Capacitor
+        script: npx cap sync android
+
+      - name: Setup Android SDK
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+
+      - name: Build Debug APK
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+    artifacts:
+      - android/app/build/outputs/apk/debug/app-debug.apk
